@@ -2,11 +2,12 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const dotenv = require("dotenv");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-
+app.use(express.static(path.join(__dirname, 'public')));
 dotenv.config();
 const port = process.env.port || 3000;
 app.listen(port , () => {
@@ -49,6 +50,7 @@ const {
   };
   
   async function run() {
+    try{
     const chatSession = model.startChat({
       generationConfig,
    // safetySettings: Adjust safety settings
@@ -179,7 +181,34 @@ const {
   
     const result = await chatSession.sendMessage("who are you?");
     console.log(result.response.text());
+  } catch (error){
+    console.error("Error in the initial chat session: ",error);
   }
+}
   
   run();
 
+  app.post("/chat", async (req, res) => {
+    const userMessage = req.body.message;
+    if (!userMessage) {
+      return res.status(400).send({ error: "Message is required" });
+    }
+  
+    try {
+      const chatSession = model.startChat({
+        generationConfig,
+        history: [
+          {
+            role: "user",
+            parts: [{ text: userMessage }],
+          },
+        ],
+      });
+  
+      const result = await chatSession.sendMessage(userMessage);
+      res.send({ response: result.response.text() });
+    } catch (error) {
+      console.error("Error processing request:", error);
+      res.status(500).send({ error: "Internal Server Error" });
+    }
+  });
